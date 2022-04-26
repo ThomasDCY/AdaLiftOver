@@ -1,0 +1,160 @@
+---
+title: "AdaLiftOver: High-resolution identification of orthologous regulatory elements with adaptive liftOver"
+author:
+- name: Chenyang Dong
+  affiliation: 
+  - Department of Statistics, University of Wisconsin - Madison
+- name: Sunduz Keles
+  affiliation: 
+  - Department of Biostatistics and Medical Informatics, University of Wisconsin - Madison
+  - Department of Statistics, University of Wisconsin - Madison
+date: "`r Sys.Date()`"
+output: BiocStyle::html_document
+vignette: >
+  %\VignetteIndexEntry{AdaLiftOver}
+  %\VignetteEncoding{UTF-8}
+  %\VignetteEngine{knitr::rmarkdown}
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r eval=TRUE, echo=FALSE}
+suppressWarnings(library(knitr))
+```
+
+
+# Introduction
+
+This document provides an introduction to the **AdaLiftOver** package. **AdaLiftOver** is a handy large-scale computational tool for adaptively identifying orthologous regions across different species using the UCSC liftOver framework. For given query genomic regions, AdaLiftOver incorporates epigenomic signals as well as sequence grammars to priorize and pinpoint candidate target genomic regions.
+
+
+# Installation
+
+**AdaLiftOver** will be submitted to Bioconductor. Currently, **AdaLiftOver** can be downloaded and installed in R by: 
+
+```{r eval=FALSE}
+devtools::install_github("ThomasDCY/AdaLiftOver")
+```
+
+
+**AdaLiftOver** depends on the following \R{} packages:
+
+(a) `r CRANpkg("data.table")` is used for fast data manipulation and computation.
+(b) `r Biocpkg("GenomicRanges")` is used for operating genomic intervals.
+(c) `r CRANpkg("motifmatchr")` is used for fast motif scanning.
+(d) `r CRANpkg("rtracklayer")` is the UCSC framework.
+(e) `r CRANpkg("Matrix")` is used for efficient matrix operations.
+
+
+# Example
+## Inputs
+
+```{r}
+library(AdaLiftOver)
+```
+
+
+We can apply **AdaLiftOver** between any two species giving the following inputs. For example, we can map from mouse (mm10) to human (hg38).
+
+### Query genomic regions
+
+The input is a **GRanges** object containing all query genomic regions.
+
+```{r}
+data("data_example")
+gr
+```
+
+
+
+### UCSC chain file
+
+We can download the UCSC chain file from [mm10.hg38.rbest.chain.gz](http://hgdownload.cse.ucsc.edu/goldenpath/mm10/vsHg38/reciprocalBest/mm10.hg38.rbest.chain.gz) and then import the chain file with the following code. 
+
+```{r eval=FALSE}
+chain <- rtracklayer::import.chain('mm10.hg38.rbest.chain')
+```
+
+
+### Orthologous epigenomic signals
+
+We uses 67 matched ENCODE functional genomic datasets including TF/DNA methylation ChIP-seq and DNase-seq between human and mouse for illustration. 
+The inputs for this part is two **GRangesList** objects with the same length.
+
+```{r}
+data("epigenome_mm10")
+epigenome_mm10
+```
+
+```{r}
+data("epigenome_hg38")
+epigenome_hg38
+```
+
+## Map query regions
+
+We first map the query regions in mouse to candidate target regions in human. The key parameters:
+
+* **window**: the size of the local region to search for if the query region fails to map.
+* **step_size**: the resolution to generate candidate target regions.
+Check the documentation for more details.
+
+```{r eval=FALSE}
+gr_target_list <- adaptive_liftover(gr, chain, window = 2000, step_size = 200)
+gr_target_list <- adaptive_liftover(gr, chain, window = 2000, step_size = 10000)
+```
+
+This function will output a **GRangesList** object that has a one-to-one correspondence to the query genomic regions.
+```{r}
+gr_list
+```
+
+
+## Compute similarity scores
+
+We then utilize the orthologous functional genomic datasets to compute epigenomic signal similarities between query regions and their corresponding candidate target regions. A metadata column *epigenome* will be added.
+
+```{r}
+gr_list <- compute_similarity_epigenome(gr, gr_list, epigenome_mm10, epigenome_hg38)
+gr_list
+```
+
+We also compute the sequence grammar similarities. A metadata column *grammar* will be added.
+
+```{r}
+data('jaspar_pfm_list')
+gr_list <- compute_similarity_grammar(gr, gr_list, 'mm10', 'hg38', jaspar_pfm_list)
+gr_list
+```
+
+
+
+## Filter target regions
+
+We then aggregate the epigenome signal and sequence grammar similarities as a logistic probability score and filter the score. The key parameters:
+
+* **best_k**: retain at most best k candidate target regions for each query region.
+* **threshold**: the score threshold for all the candidate target regions.
+
+The logistic regression parameters are estimable with external datasets.
+Check the documentation for more details.
+
+```{r}
+gr_list_filter <- gr_candidate_filter(
+    gr_list,
+    best_k = 1L,
+    b_intercept = -2.922484,
+    b_epigenome = 5.032385,
+    b_grammar = 3.223607,
+    b_interaction = NULL,
+    threshold = 0.5
+)
+gr_list_filter
+```
+
+
+# Session Information
+
+```{r eval=TRUE,echo=FALSE,results="markup",cache=FALSE}
+print(sessionInfo())
+```
