@@ -8,7 +8,7 @@
 
 ```r
 ## install.packages("devtools")
-devtools::install_github("ThomasDCY/AdaLiftOver")
+devtools::install_github("ThomasDCY/AdaLiftOver", build_vignettes = TRUE)
 ```
 
 If the installation fails, make sure you can install the following R packages:
@@ -67,6 +67,10 @@ gr_list_filter <- gr_candidate_filter(
 
 
 See the vignette for more information!
+
+```r
+browseVignettes("AdaLiftOver")
+```
 
 ### Reference
 
