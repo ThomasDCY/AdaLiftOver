@@ -45,18 +45,14 @@
 #' @import Matrix
 #' @rawNamespace import(data.table, except = shift)
 #' @export
-compute_similarity_grammar <- function(
-  gr_query,
-  gr_target_list,
-  query_genome,
-  target_genome,
-  motif_list,
-  grammar_size = 500L,
-  metric = 'cosine',
-  verbose = TRUE
-) {
-
-
+compute_similarity_grammar <- function(gr_query,
+                                       gr_target_list,
+                                       query_genome,
+                                       target_genome,
+                                       motif_list,
+                                       grammar_size = 500L,
+                                       metric = 'cosine',
+                                       verbose = TRUE) {
   stopifnot(
     class(gr_query) == 'GRanges',
     class(gr_target_list) %in% c('GRangesList', 'CompressedGRangesList'),
@@ -64,7 +60,7 @@ compute_similarity_grammar <- function(
     metric %in% c('cosine', 'jaccard')
   )
 
-  if(verbose) {
+  if (verbose) {
     message('Computing grammar similarity scores.')
   }
 
@@ -79,15 +75,14 @@ compute_similarity_grammar <- function(
   )
 
   gr_target_df <- as.data.table(gr_target_list)
-  gr_target_df$group <- factor(gr_target_df$group, levels = 1:length(gr_target_list))
+  gr_target_df$group <-
+    factor(gr_target_df$group, levels = 1:length(gr_target_list))
   gr_target_df$`group_name` <- NULL
   gr_target_df$grammar <- similarity
 
-  gr_target_list <- makeGRangesListFromDataFrame(
-    gr_target_df,
-    split.field = 'group',
-    keep.extra.columns = TRUE
-  )
+  gr_target_list <- makeGRangesListFromDataFrame(gr_target_df,
+                                                 split.field = 'group',
+                                                 keep.extra.columns = TRUE)
   names(gr_target_list) <- NULL
 
   return(gr_target_list)
@@ -138,32 +133,34 @@ compute_similarity_grammar <- function(
 #' @import Matrix
 #' @rawNamespace import(data.table, except = shift)
 #' @export
-compute_similarity_grammar_flat <- function(
-  gr_query,
-  gr_target,
-  query_genome,
-  target_genome,
-  motif_list,
-  grammar_size = 500L,
-  metric = 'cosine'
-) {
-
+compute_similarity_grammar_flat <- function(gr_query,
+                                            gr_target,
+                                            query_genome,
+                                            target_genome,
+                                            motif_list,
+                                            grammar_size = 500L,
+                                            metric = 'cosine') {
   stopifnot(
     # gr_query and gr_target have to be GRanges classes with the same length
     class(gr_query) == 'GRanges',
     class(gr_target) == 'GRanges',
-    length(gr_query) == 1 || length(gr_target) == 1 || length(gr_query) == length(gr_target),
+    length(gr_query) == 1 ||
+      length(gr_target) == 1 ||
+      length(gr_query) == length(gr_target),
     metric %in% c('cosine', 'jaccard'),
     grammar_size >= 100
   )
 
-  if(length(gr_query) == 0 || length(gr_target) == 0) {
+  if (length(gr_query) == 0 || length(gr_target) == 0) {
     return(NULL) # has to be NULL
   }
 
-  query_mat <- compute_grammar_matrix(gr_query, motif_list, query_genome, grammar_size)
-  target_mat <- compute_grammar_matrix(gr_target, motif_list, target_genome, grammar_size)
-  similarity <- compute_similarity_from_matrix_grammar(query_mat, target_mat, metric)
+  query_mat <-
+    compute_grammar_matrix(gr_query, motif_list, query_genome, grammar_size)
+  target_mat <-
+    compute_grammar_matrix(gr_target, motif_list, target_genome, grammar_size)
+  similarity <-
+    compute_similarity_from_matrix_grammar(query_mat, target_mat, metric)
   return(similarity)
 }
 
@@ -172,17 +169,13 @@ compute_similarity_grammar_flat <- function(
 
 ## A helper function that computes the sequence grammar signal indicator matrix
 ## (length(gr) by length(motif_list))
-compute_grammar_matrix <- function(
-  gr,
-  motif_list,
-  genome,
-  grammar_size = 500L
-) {
-  stopifnot(
-    class(gr) == 'GRanges',
-    length(gr) > 0,
-    grammar_size >= 150
-  )
+compute_grammar_matrix <- function(gr,
+                                   motif_list,
+                                   genome,
+                                   grammar_size = 500L) {
+  stopifnot(class(gr) == 'GRanges',
+            length(gr) > 0,
+            grammar_size >= 150)
 
   grammar_size <- as.integer(grammar_size)
 
@@ -190,7 +183,8 @@ compute_grammar_matrix <- function(
   offset <- pmax(grammar_size - width(gr), 0) %/% 2
   gr <- gr + offset
 
-  grammar_ix <- matchMotifs(motif_list, gr, genome = genome, bg = 'even')
+  grammar_ix <-
+    matchMotifs(motif_list, gr, genome = genome, bg = 'even')
   grammar_ix <- motifMatches(grammar_ix)
   return(grammar_ix)
 }
@@ -202,25 +196,23 @@ compute_grammar_matrix <- function(
 
 
 ## A helper function that computes cosine/jaccard similarities between indicator matrices rowwisely.
-compute_similarity_from_matrix_grammar <- function(
-  query_mat,
-  target_mat,
-  metric = 'cosine'
-) {
-
+compute_similarity_from_matrix_grammar <- function(query_mat,
+                                                   target_mat,
+                                                   metric = 'cosine') {
   stopifnot(
-    nrow(query_mat) == nrow(target_mat) || nrow(query_mat) == 1 || nrow(target_mat) == 1,
+    nrow(query_mat) == nrow(target_mat) ||
+      nrow(query_mat) == 1 || nrow(target_mat) == 1,
     ncol(query_mat) == ncol(target_mat),
     metric %in% c('cosine', 'jaccard')
   )
 
-  if(nrow(query_mat) != nrow(target_mat)) {
-    if(nrow(query_mat) == 1) {
-      query_mat <- query_mat[rep(1, nrow(target_mat)), ]
+  if (nrow(query_mat) != nrow(target_mat)) {
+    if (nrow(query_mat) == 1) {
+      query_mat <- query_mat[rep(1, nrow(target_mat)),]
     }
 
     else {
-      target_mat <- target_mat[rep(1, nrow(query_mat)), ]
+      target_mat <- target_mat[rep(1, nrow(query_mat)),]
     }
   }
 
@@ -228,17 +220,13 @@ compute_similarity_from_matrix_grammar <- function(
   t_vec <- Matrix::rowSums(target_mat)
   qt_vec <- Matrix::rowSums(query_mat & target_mat)
 
-  if(metric == 'cosine'){
+  if (metric == 'cosine') {
     similarity <- qt_vec / sqrt(q_vec * t_vec)
   }
 
-  if(metric == 'jaccard'){
+  if (metric == 'jaccard') {
     similarity <- qt_vec / (q_vec + t_vec - qt_vec)
   }
 
   return(similarity)
 }
-
-
-
-

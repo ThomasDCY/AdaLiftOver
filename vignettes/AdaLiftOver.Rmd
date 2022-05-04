@@ -44,6 +44,7 @@ devtools::install_github("ThomasDCY/AdaLiftOver")
 (c) `r CRANpkg("motifmatchr")` is used for fast motif scanning.
 (d) `r CRANpkg("rtracklayer")` is the UCSC framework.
 (e) `r CRANpkg("Matrix")` is used for efficient matrix operations.
+(f) `r CRANpkg("PRROC")` is used in the training module to compute the area under curve.
 
 
 # Example
@@ -143,14 +144,32 @@ Check the documentation for more details.
 gr_list_filter <- gr_candidate_filter(
     gr_list,
     best_k = 1L,
-    b_intercept = -2.922484,
-    b_epigenome = 5.032385,
-    b_grammar = 3.223607,
     b_interaction = NULL,
     threshold = 0.5
 )
 gr_list_filter
 ```
+
+
+## The training module
+
+We might need to learn the parameters for a pair of matched epigenome datasets other than the ENCODE repertoire we provide. AdaLiftOver provides a training module to estimate the logistic regression parameters and suggest an optimal score threshold without filtering out too many candidate target regions. The key parameters:
+
+* **gr_candidate**: the resulting candidate target regions with epigenome signal and sequence grammar similarity computed.
+* **gr_true**: the ground truth of the target regions.
+
+```{r}
+data("training_module_example")
+gr_candidate
+gr_true
+```
+
+```{r}
+training_module(gr_candidate, gr_true, interaction = FALSE) # without the interaction term
+training_module(gr_candidate, gr_true, interaction = TRUE) # with the interaction term
+```
+
+We can use the estimated regression coefficients as inputs to the function gr_candidate_filter().
 
 
 # Session Information

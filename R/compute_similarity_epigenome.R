@@ -1,4 +1,5 @@
 
+
 #' compute_similarity_epigenome
 #'
 #' This function computes the epigenome profile similarities between query regions and
@@ -44,17 +45,14 @@
 #' @import Matrix
 #' @rawNamespace import(data.table, except = shift)
 #' @export
-compute_similarity_epigenome <- function(
-    gr_query,
-    gr_target_list,
-    query_grlist,
-    target_grlist,
-    weights = NULL,
-    maxgap = 500L,
-    metric = 'cosine',
-    verbose = TRUE
-) {
-
+compute_similarity_epigenome <- function(gr_query,
+                                         gr_target_list,
+                                         query_grlist,
+                                         target_grlist,
+                                         weights = NULL,
+                                         maxgap = 500L,
+                                         metric = 'cosine',
+                                         verbose = TRUE) {
     stopifnot(
         class(gr_query) == 'GRanges',
         class(gr_target_list) %in% c('GRangesList', 'CompressedGRangesList'),
@@ -67,7 +65,7 @@ compute_similarity_epigenome <- function(
         metric %in% c('cosine', 'jaccard')
     )
 
-    if(verbose) {
+    if (verbose) {
         message('Computing epigenome similarity scores.')
     }
 
@@ -82,15 +80,14 @@ compute_similarity_epigenome <- function(
     )
 
     gr_target_df <- as.data.table(gr_target_list)
-    gr_target_df$group <- factor(gr_target_df$group, levels = 1:length(gr_target_list))
+    gr_target_df$group <-
+        factor(gr_target_df$group, levels = 1:length(gr_target_list))
     gr_target_df$`group_name` <- NULL
     gr_target_df$epigenome <- similarity
 
-    gr_target_list <- makeGRangesListFromDataFrame(
-        gr_target_df,
-        split.field = 'group',
-        keep.extra.columns = TRUE
-    )
+    gr_target_list <- makeGRangesListFromDataFrame(gr_target_df,
+                                                   split.field = 'group',
+                                                   keep.extra.columns = TRUE)
     names(gr_target_list) <- NULL
 
     return(gr_target_list)
@@ -140,21 +137,19 @@ compute_similarity_epigenome <- function(
 #' @import GenomicRanges
 #' @import Matrix
 #' @export
-compute_similarity_epigenome_flat <- function(
-    gr_query,
-    gr_target,
-    query_grlist,
-    target_grlist,
-    weights = NULL,
-    maxgap = 500L,
-    metric = 'cosine'
-) {
-
+compute_similarity_epigenome_flat <- function(gr_query,
+                                              gr_target,
+                                              query_grlist,
+                                              target_grlist,
+                                              weights = NULL,
+                                              maxgap = 500L,
+                                              metric = 'cosine') {
     stopifnot(
         # gr_query and gr_target have to be GRanges classes with the same length
         class(gr_query) == 'GRanges',
         class(gr_target) == 'GRanges',
-        length(gr_query) == 1 || length(gr_target) == 1 || length(gr_query) == length(gr_target),
+        length(gr_query) == 1 ||
+            length(gr_target) == 1 || length(gr_query) == length(gr_target),
         class(query_grlist) %in% c('GRangesList', 'CompressedGRangesList'),
         class(target_grlist) %in% c('GRangesList', 'CompressedGRangesList'),
         length(query_grlist) == length(target_grlist),
@@ -163,13 +158,16 @@ compute_similarity_epigenome_flat <- function(
         metric %in% c('cosine', 'jaccard')
     )
 
-    if(length(gr_query) == 0 || length(gr_target) == 0) {
+    if (length(gr_query) == 0 || length(gr_target) == 0) {
         return(NULL) # has to be NULL
     }
 
-    query_mat <- compute_epigenome_matrix(gr_query, query_grlist, maxgap)
-    target_mat <- compute_epigenome_matrix(gr_target, target_grlist, maxgap)
-    similarity <- compute_similarity_from_matrix_epigenome(query_mat, target_mat, metric, weights)
+    query_mat <-
+        compute_epigenome_matrix(gr_query, query_grlist, maxgap)
+    target_mat <-
+        compute_epigenome_matrix(gr_target, target_grlist, maxgap)
+    similarity <-
+        compute_similarity_from_matrix_epigenome(query_mat, target_mat, metric, weights)
     return(similarity)
 }
 
@@ -179,11 +177,9 @@ compute_similarity_epigenome_flat <- function(
 
 ## A helper function that computes the epigenome signal indicator matrix
 ## (length(gr) by length(grList))
-compute_epigenome_matrix <- function(
-    gr,
-    grlist,
-    maxgap = 500L
-) {
+compute_epigenome_matrix <- function(gr,
+                                     grlist,
+                                     maxgap = 500L) {
     stopifnot(
         class(gr) == 'GRanges',
         length(gr) > 0,
@@ -195,7 +191,8 @@ compute_epigenome_matrix <- function(
 
     overlap <- findOverlaps(gr, grlist, maxgap = maxgap)
 
-    epigenome_ix <- matrix(FALSE, nrow = length(gr), ncol = length(grlist))
+    epigenome_ix <-
+        matrix(FALSE, nrow = length(gr), ncol = length(grlist))
     epigenome_ix[as.matrix(overlap)] <- TRUE
 
     return(epigenome_ix)
@@ -204,31 +201,29 @@ compute_epigenome_matrix <- function(
 
 
 ## A helper function that computes cosine/jaccard similarities between indicator matrices rowwisely.
-compute_similarity_from_matrix_epigenome <- function(
-    query_mat,
-    target_mat,
-    metric = 'cosine',
-    weights = NULL
-) {
-
+compute_similarity_from_matrix_epigenome <- function(query_mat,
+                                                     target_mat,
+                                                     metric = 'cosine',
+                                                     weights = NULL) {
     stopifnot(
-        nrow(query_mat) == nrow(target_mat) || nrow(query_mat) == 1 || nrow(target_mat) == 1,
+        nrow(query_mat) == nrow(target_mat) ||
+            nrow(query_mat) == 1 || nrow(target_mat) == 1,
         ncol(query_mat) == ncol(target_mat),
         metric %in% c('cosine', 'jaccard'),
         is.null(weights) || length(weights) == ncol(query_mat)
     )
 
-    if(nrow(query_mat) != nrow(target_mat)) {
-        if(nrow(query_mat) == 1) {
-            query_mat <- query_mat[rep(1, nrow(target_mat)), ]
+    if (nrow(query_mat) != nrow(target_mat)) {
+        if (nrow(query_mat) == 1) {
+            query_mat <- query_mat[rep(1, nrow(target_mat)),]
         }
 
         else {
-            target_mat <- target_mat[rep(1, nrow(query_mat)), ]
+            target_mat <- target_mat[rep(1, nrow(query_mat)),]
         }
     }
 
-    if(is.null(weights)) {
+    if (is.null(weights)) {
         q_vec <- Matrix::rowSums(query_mat)
         t_vec <- Matrix::rowSums(target_mat)
         qt_vec <- Matrix::rowSums(query_mat & target_mat)
@@ -239,17 +234,13 @@ compute_similarity_from_matrix_epigenome <- function(
         qt_vec <- as.vector((query_mat & target_mat) %*% weights)
     }
 
-    if(metric == 'cosine'){
+    if (metric == 'cosine') {
         similarity <- qt_vec / sqrt(q_vec * t_vec)
     }
 
-    if(metric == 'jaccard'){
+    if (metric == 'jaccard') {
         similarity <- qt_vec / (q_vec + t_vec - qt_vec)
     }
 
     return(similarity)
 }
-
-
-
-

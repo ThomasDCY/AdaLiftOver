@@ -1,4 +1,5 @@
 
+
 #'
 #' gr_candidate_filter
 #'
@@ -10,11 +11,11 @@
 #' @param best_k
 #' Select the best k regions for each element of gr_candidate. Default is 1L.
 #' @param b_intercept
-#' The regression coefficient of intercept. Default is -2.922484.
+#' The regression coefficient of intercept. Default is -4.1626668.
 #' @param b_epigenome
-#' The regression coefficient of epigenome similarity. Default is 5.032385.
+#' The regression coefficient of epigenome similarity. Default is 5.4030573.
 #' @param b_grammar
-#' The regression coefficient of grammar similarity. Default is 3.223607.
+#' The regression coefficient of grammar similarity. Default is 2.0649039.
 #' @param b_interaction
 #' The regression coefficient of the interaction term. Default is NULL.
 #' @param threshold
@@ -40,21 +41,17 @@
 #' @import GenomicRanges
 #' @rawNamespace import(data.table, except = shift)
 #' @export
-gr_candidate_filter <- function(
-    gr_candidate,
-    best_k = 1L,
-    b_intercept = -2.922484,
-    b_epigenome = 5.032385,
-    b_grammar = 3.223607,
-    b_interaction = NULL,
-    threshold = 0,
-    random = FALSE,
-    verbose = TRUE
-) {
-    stopifnot(
-        class(gr_candidate) %in% c('CompressedGRangesList', 'GrangesList'),
-        best_k >= 1
-    )
+gr_candidate_filter <- function(gr_candidate,
+                                best_k = 1L,
+                                b_intercept = -4.1626668,
+                                b_epigenome = 5.4030573,
+                                b_grammar = 2.0649039,
+                                b_interaction = NULL,
+                                threshold = 0,
+                                random = FALSE,
+                                verbose = TRUE) {
+    stopifnot(class(gr_candidate) %in% c('CompressedGRangesList', 'GrangesList'),
+              best_k >= 1)
     best_k <- as.integer(best_k)
 
     gr_candidate_dt <- as.data.table(gr_candidate)
@@ -65,34 +62,37 @@ gr_candidate_filter <- function(
         'grammar' %in% colnames(gr_candidate_dt)
     )
 
-    if(verbose) {
+    if (verbose) {
         message('Filtering syntenic regions based on epigenome and grammar similarities.')
     }
 
     gr_candidate_dt[is.na(gr_candidate_dt)] <- 0
-    score <- b_intercept + b_epigenome * gr_candidate_dt$epigenome + b_grammar * gr_candidate_dt$grammar
+    score <-
+        b_intercept + b_epigenome * gr_candidate_dt$epigenome + b_grammar * gr_candidate_dt$grammar
 
-    if(!is.null(b_interaction)) {
-        score <- score + b_interaction * gr_candidate_dt$epigenome * gr_candidate_dt$grammar
+    if (!is.null(b_interaction)) {
+        score <-
+            score + b_interaction * gr_candidate_dt$epigenome * gr_candidate_dt$grammar
     }
 
-    gr_candidate_dt[, score := 1/(1+exp(-score))]
+    gr_candidate_dt[, score := 1 / (1 + exp(-score))]
     gr_candidate_dt <- gr_candidate_dt[score >= threshold]
 
-    if(random) {
-        gr_candidate_dt <- gr_candidate_dt[, .SD[sample(1:nrow(.SD), min(nrow(.SD), best_k))], by = group]
+    if (random) {
+        gr_candidate_dt <-
+            gr_candidate_dt[, .SD[sample(1:nrow(.SD), min(nrow(.SD), best_k))], by = group]
     }
     else {
-        gr_candidate_dt <- gr_candidate_dt[, .SD[order(-score)][1:min(nrow(.SD), best_k)], by = group]
+        gr_candidate_dt <-
+            gr_candidate_dt[, .SD[order(-score)][1:min(nrow(.SD), best_k)], by = group]
     }
 
-    gr_candidate_dt$group <- factor(gr_candidate_dt$group, levels = 1:length(gr_candidate))
+    gr_candidate_dt$group <-
+        factor(gr_candidate_dt$group, levels = 1:length(gr_candidate))
 
-    gr_candidate <- makeGRangesListFromDataFrame(
-        gr_candidate_dt,
-        split.field = 'group',
-        keep.extra.columns = TRUE
-    )
+    gr_candidate <- makeGRangesListFromDataFrame(gr_candidate_dt,
+                                                 split.field = 'group',
+                                                 keep.extra.columns = TRUE)
 
     names(gr_candidate) <- NULL
 

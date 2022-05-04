@@ -1,4 +1,5 @@
 
+
 #' adaptive_liftover
 #'
 #' Generate candidate target regions
@@ -40,17 +41,14 @@
 #' @import GenomicRanges
 #' @import rtracklayer
 #' @export
-adaptive_liftover <- function(
-    gr,
-    chain,
-    window = 2000L,
-    option = 'adaptive',
-    gap = 5L,
-    step_size = 200L,
-    verbose = TRUE
-) {
-
-    if(verbose) {
+adaptive_liftover <- function(gr,
+                              chain,
+                              window = 2000L,
+                              option = 'adaptive',
+                              gap = 5L,
+                              step_size = 200L,
+                              verbose = TRUE) {
+    if (verbose) {
         message('Computing orthologous regions.')
     }
 
@@ -62,19 +60,17 @@ adaptive_liftover <- function(
     )
 
 
-    if(verbose) {
+    if (verbose) {
         message('Merging small gaps.')
     }
 
-    stopifnot(
-        gap >= 0
-    )
+    stopifnot(gap >= 0)
 
     gap <- as.integer(gap)
     gr_syntenic <- reduce(gr_syntenic + gap)
 
 
-    if(verbose) {
+    if (verbose) {
         message('Generating candidate regions.')
     }
     gr_syntenic <- generate_candidate_regions(
@@ -91,33 +87,29 @@ adaptive_liftover <- function(
 
 
 ## This helper function calls liftOver with three options
-adaptive_liftover_syntenic <- function(
-    gr,
-    chain,
-    window = 2000L,
-    option = 'adaptive'
-) {
-
-    stopifnot(
-        class(gr) == 'GRanges',
-        option %in% c('adaptive', 'direct', 'local'),
-        window >= 0
-    )
+adaptive_liftover_syntenic <- function(gr,
+                                       chain,
+                                       window = 2000L,
+                                       option = 'adaptive') {
+    stopifnot(class(gr) == 'GRanges',
+              option %in% c('adaptive', 'direct', 'local'),
+              window >= 0)
 
     window <- as.integer(window)
 
-    if(option == 'direct') {
+    if (option == 'direct') {
         gr_syntenic <- liftOver(gr, chain)
     }
 
-    else if(option == 'local') {
-        gr_syntenic <- liftOver(gr+window, chain)
+    else if (option == 'local') {
+        gr_syntenic <- liftOver(gr + window, chain)
     }
 
     else {
         gr_syntenic <- liftOver(gr, chain)
         ind <- sapply(gr_syntenic, length) == 0
-        suppressWarnings(gr_syntenic[ind] <- liftOver(gr[ind]+window, chain))
+        suppressWarnings(gr_syntenic[ind] <-
+                             liftOver(gr[ind] + window, chain))
         # to suppress potential warnings from .Seqinfo.mergexy(x, y)
     }
     return(gr_syntenic)
@@ -132,12 +124,9 @@ adaptive_liftover_syntenic <- function(
 ## by using the center points of all disjoint segments of target regions.
 ## Then move these center points towards both ends of the segments with step_size to generate anchor points.
 ## With these anchor points, we then resize the regions with widths equal to gr_query.
-generate_candidate_regions <- function(
-    gr_query,
-    gr_target_list,
-    step_size = 200L
-) {
-
+generate_candidate_regions <- function(gr_query,
+                                       gr_target_list,
+                                       step_size = 200L) {
     stopifnot(
         class(gr_query) == 'GRanges',
         class(gr_target_list) %in% c('CompressedGRangesList', 'GrangesList'),
@@ -150,7 +139,7 @@ generate_candidate_regions <- function(
 
     gr_target_df <- as.data.table(gr_target_list)
 
-    if(nrow(gr_target_df) == 0) {
+    if (nrow(gr_target_df) == 0) {
         warning('None of the input query regions can be mapped.')
         return(gr_target_list)
     }
@@ -171,19 +160,17 @@ generate_candidate_regions <- function(
         )
     })
     gr_candidate <- rbindlist(gr_candidate)
-    gr_candidate$group <- factor(gr_candidate$group, levels = 1:length(gr_target_list))
+    gr_candidate$group <-
+        factor(gr_candidate$group, levels = 1:length(gr_target_list))
 
     ext <- (width(gr_query)[gr_candidate$group]) %/% 2
     gr_candidate$start <- gr_candidate$start - ext
     gr_candidate$end <- gr_candidate$end + ext
 
-    gr_candidate <- makeGRangesListFromDataFrame(
-        gr_candidate,
-        split.field = 'group',
-        keep.extra.columns = FALSE
-    )
+    gr_candidate <- makeGRangesListFromDataFrame(gr_candidate,
+                                                 split.field = 'group',
+                                                 keep.extra.columns = FALSE)
     names(gr_candidate) <- NULL
 
     return(gr_candidate)
 }
-

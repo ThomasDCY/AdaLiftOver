@@ -7,9 +7,9 @@
 gr_candidate_filter(
   gr_candidate,
   best_k = 1L,
-  b_intercept = -2.922484,
-  b_epigenome = 5.032385,
-  b_grammar = 3.223607,
+  b_intercept = -4.1626668,
+  b_epigenome = 5.4030573,
+  b_grammar = 2.0649039,
   b_interaction = NULL,
   threshold = 0,
   random = FALSE,
@@ -21,11 +21,11 @@ gr_candidate_filter(
 
 \item{best_k}{Select the best k regions for each element of gr_candidate. Default is 1L.}
 
-\item{b_intercept}{The regression coefficient of intercept. Default is -2.922484.}
+\item{b_intercept}{The regression coefficient of intercept. Default is -4.1626668.}
 
-\item{b_epigenome}{The regression coefficient of epigenome similarity. Default is 5.032385.}
+\item{b_epigenome}{The regression coefficient of epigenome similarity. Default is 5.4030573.}
 
-\item{b_grammar}{The regression coefficient of grammar similarity. Default is 3.223607.}
+\item{b_grammar}{The regression coefficient of grammar similarity. Default is 2.0649039.}
 
 \item{b_interaction}{The regression coefficient of the interaction term. Default is NULL.}
 
