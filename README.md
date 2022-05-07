@@ -28,7 +28,7 @@ if (!require("BiocManager", quietly = TRUE))
 
 ## motifmatchr
 ## See also https://github.com/GreenleafLab/motifmatchr
-BiocManager::install("motifmatchr")
+devtools::install_github("GreenleafLab/motifmatchr")
 
 ## rtracklayer
 BiocManager::install("rtracklayer")
@@ -39,6 +39,10 @@ BiocManager::install("GenomicRanges")
 ## The BSgenome packages required to run the examples
 BiocManager::install("BSgenome.Mmusculus.UCSC.mm10")
 BiocManager::install("BSgenome.Hsapiens.UCSC.hg38")
+
+## To build the vignette, we need the following packages
+install.packages("rmarkdown")
+BiocManager::install("BiocStyle")
 ```
 
 ## A quick start
