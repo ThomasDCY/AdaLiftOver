@@ -87,11 +87,60 @@ training_module(gr_candidate, gr_true)
 ```
 
 
+
+## For a user defined epigenome repertoire
+
+For other model organisms, e.g. rats, we will need to collect orthologous epigenome repertoire from scratch. We hereby illustrate an example.
+
+We can download the UCSC chain file from rat to human [rn6.hg38.rbest.chain.gz](https://hgdownload.soe.ucsc.edu/goldenPath/hg38/vsRn6/reciprocalBest/rn6.hg38.rbest.chain.gz) and then import the chain file with the following code. 
+
+```r
+chain <- rtracklayer::import.chain('rn6.hg38.rbest.chain')
+```
+
+Make sure to install the **BSgenome** object for rat genome as well.
+```r
+if (!require("BiocManager", quietly = TRUE))
+    install.packages("BiocManager")
+BiocManager::install("BSgenome.Rnorvegicus.UCSC.rn6")
+```
+
+These datasets are organized as **GRangesList** objects **epigenome_rn6_test**, **epigenome_hg38_test**
+```{r}
+data('rat_example')
+```
+
+Please refer to the vignette for the code and more details with leave one out cross validation.
+
+After computing the candidate target regions for each rat epigenome peaks, 
+we first label the candidate target regions in the human genome as positives if they overlap with the corresponding human epigenome peaks and as negatives otherwise.
+Then, we estimate the parameters with the training_module() function.
+
+```{r}
+tissues <- names(epigenome_rn6_test)
+training_result <- rbindlist(
+  lapply(tissues, function(tissue) {
+    dt <- training_module(
+        gr_candidate_list[[tissue]], 
+        epigenome_hg38_test[[tissue]], 
+        max_filter_proportion = 0.5, 
+        interaction = FALSE
+    )
+    return(dt)
+}))
+training_result
+```
+
+We can take the averaged logistic regression parameters as default for rat studies.
+
+
+
 See the vignette for more information!
 
 ```r
 browseVignettes("AdaLiftOver")
 ```
+
 
 ### Reference
 

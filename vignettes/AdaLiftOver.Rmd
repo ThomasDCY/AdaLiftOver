@@ -20,6 +20,8 @@ editor_options:
 
 ```{r eval=TRUE, echo=FALSE}
 suppressWarnings(library(knitr))
+suppressMessages(library(GenomicRanges))
+suppressMessages(library(data.table))
 ```
 
 
@@ -132,12 +134,12 @@ gr_list
 
 ## Filter target regions
 
-We then aggregate the epigenome signal and sequence grammar similarities as a logistic probability score and filter the score. The key parameters:
+We then aggregate the epigenome signal and sequence grammar similarities as logistic probability scores and filter the scores with gr_candidate_filter() function. The key parameters:
 
 * **best_k**: retain at most best k candidate target regions for each query region.
 * **threshold**: the score threshold for all the candidate target regions.
 
-The logistic regression parameters are estimable with external datasets.
+The gr_candidate_filter() function also allows the logistic regression parameters for the sigmoid function. The logistic regression parameters are estimable with paired epigenome datasets with the training_module() function (see the next section). The default parameters are for mouse and human studies with the ENCODE epigenome repertoire we prepare.
 Check the documentation for more details.
 
 ```{r}
@@ -153,10 +155,15 @@ gr_list_filter
 
 ## The training module
 
-We might need to learn the parameters for a pair of matched epigenome datasets other than the ENCODE repertoire we provide. AdaLiftOver provides a training module to estimate the logistic regression parameters and suggest an optimal score threshold without filtering out too many candidate target regions. The key parameters:
+### Learn the parameters from a pair of epigenome datasets
 
-* **gr_candidate**: the resulting candidate target regions with epigenome signal and sequence grammar similarity computed.
+We might need to learn the parameters for a pair of matched epigenome datasets other than the ENCODE repertoire we prepare. AdaLiftOver provides a training module to estimate the logistic regression parameters and suggest an optimal score threshold without filtering out too many candidate target regions. The key parameters:
+
+* **gr_candidate**: the resulting candidate target regions with epigenomic signal and sequence grammar similarity computed.
 * **gr_true**: the ground truth of the target regions.
+* **max_filter_proportion**: The maximum proportion of candidate target regions that are allowed to be filtered out. Default is 0.4.
+* **interaction**:If we include the interaction term in the logistic regression. Default is FALSE.
+
 
 ```{r}
 data("training_module_example")
@@ -164,12 +171,131 @@ gr_candidate
 gr_true
 ```
 
+
+The training module labels the candidate target regions (gr_candidate) as positives if they overlap with the corresponding epigenome peaks (gr_true) and as negatives otherwise.
+![An illustration of labeling candidate target regions of a mouse query region with the corresponding human epigenome peaks.  Positive and negative classes are represented by 1 and 0, respectively. The translucent gray bands represent candidate orthologous mappings.](labeling.png)
+
+
 ```{r}
 training_module(gr_candidate, gr_true, interaction = FALSE) # without the interaction term
 training_module(gr_candidate, gr_true, interaction = TRUE) # with the interaction term
 ```
 
+The training module outputs a data table with the following columns:
+
+* auroc: The optimal AUROC. 
+* aupr:  The optimal AUPR. 
+* b.intercept:  The estimated regression coefficient for the intercept. 
+* b.epigenome:  The estimated regression coefficient for the epigenome signal. 
+* b.grammar:  The estimated regression coefficient for the sequence grammar. 
+* b.interaction:  The estimated regression coefficient for the interaction term if included. 
+* max_filter_proportion:  The input parameter max_filter_proportion. 
+* threshold:  The suggested score threshold. 
+* precision:  The precision associated with the suggested score threshold. 
+
+
 We can use the estimated regression coefficients as inputs to the function gr_candidate_filter().
+
+
+### Leave one out cross validation (LOOCV) for another epigenome repertoire
+
+For other model organisms, e.g. rats, we will need to collect orthologous epigenome repertoire from scratch. We hereby illustrate an example.
+
+We can download the UCSC chain file from rat to human [rn6.hg38.rbest.chain.gz](https://hgdownload.soe.ucsc.edu/goldenPath/hg38/vsRn6/reciprocalBest/rn6.hg38.rbest.chain.gz) and then import the chain file with the following code. 
+
+```{r eval=FALSE}
+chain <- rtracklayer::import.chain('rn6.hg38.rbest.chain')
+```
+
+To provide a minimal example, we download the following human and rat orthologous ChIP-seq H3K4me3 datasets from [ChIP-Atlas](https://chip-atlas.org/):
+
+* [human heart](https://dbarchive.biosciencedbc.jp/kyushu-u/hg38/eachData/bed05/SRX347276.05.bed)
+* [rat heart](https://dbarchive.biosciencedbc.jp/kyushu-u/rn6/eachData/bed05/ERX101846.05.bed)
+* [human liver](https://dbarchive.biosciencedbc.jp/kyushu-u/hg38/eachData/bed05/ERX2868940.05.bed)
+* [rat liver](https://dbarchive.biosciencedbc.jp/kyushu-u/rn6/eachData/bed05/SRX5761744.05.bed)
+* [human pancreas](https://dbarchive.biosciencedbc.jp/kyushu-u/hg38/eachData/bed05/SRX026705.05.bed)
+* [rat pancreas](https://dbarchive.biosciencedbc.jp/kyushu-u/rn6/eachData/bed05/SRX8047583.05.bed)
+
+Make sure to install the **BSgenome** object for rat genome as well.
+```{r eval=FALSE}
+if (!require("BiocManager", quietly = TRUE))
+    install.packages("BiocManager")
+BiocManager::install("BSgenome.Rnorvegicus.UCSC.rn6")
+```
+
+
+
+These datasets are organized as **GRangesList** objects **epigenome_rn6_test**, **epigenome_hg38_test**
+```{r}
+data('rat_example')
+```
+
+
+To conduct LOOCV, we first apply AdaLiftOver to map each rat epigenome dataset to human while excluding the current dataset for epigenomic signal similarity calculations. The following code takes about 15 minutes to run. Please note that leaving out only one pair of epigenome datasets might not be a good idea when there are multiple datasets from the same tissue. Excluding all epigenome datasets from the same tissue is recommended for LOOCV.
+
+```{r eval=FALSE}
+library(parallel)
+tissues <- names(epigenome_rn6_test)
+
+gr_candidate_list <- mclapply(1:length(epigenome_rn6_test), function(i) {
+    message(paste(tissues[i], 'is being processed!'))
+    gr <- epigenome_rn6_test[[i]] 
+    # current LOOCV fold
+    # leave out the i-th epigenome dataset and train with the rest
+
+    gr_candidate <- adaptive_liftover(
+        gr,
+        chain,
+        window = 2000,
+        option = 'adaptive',
+        verbose = TRUE
+    )
+
+    gr_candidate <- compute_similarity_epigenome(
+        gr_query = gr,
+        gr_target_list = gr_candidate,
+        query_grlist = epigenome_rn6_test[-i], # training data
+        target_grlist = epigenome_hg38_test[-i], # training data
+        verbose = TRUE
+    ) 
+
+    gr_candidate <- compute_similarity_grammar(
+        gr_query = gr,
+        gr_target_list = gr_candidate,
+        query_genome = 'rn6',
+        target_genome = 'hg38',
+        motif_list = jaspar_pfm_list,
+        verbose = TRUE
+    )
+
+    return(gr_candidate)
+}, mc.cores = 4)
+
+names(gr_candidate_list) <- tissues
+```
+
+
+After computing the candidate target regions for each rat epigenome peaks, 
+we first label the candidate target regions in the human genome as positives if they overlap with the corresponding human epigenome peaks and as negatives otherwise.
+
+Then, we estimate the parameters with the training_module() function.
+
+```{r}
+tissues <- names(epigenome_rn6_test)
+training_result <- rbindlist(
+  lapply(tissues, function(tissue) {
+    dt <- training_module(
+        gr_candidate_list[[tissue]], 
+        epigenome_hg38_test[[tissue]], 
+        max_filter_proportion = 0.5, 
+        interaction = FALSE
+    )
+    return(dt)
+}))
+training_result
+```
+
+We can take the averaged logistic regression parameters as default for rat studies.
 
 
 # Session Information
