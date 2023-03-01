@@ -17,7 +17,8 @@ Imports:
     motifmatchr,
     rtracklayer,
     Matrix,
-    PRROC
+    PRROC,
+    GenomicAlignments
 Suggests:
     knitr,
     rmarkdown,
