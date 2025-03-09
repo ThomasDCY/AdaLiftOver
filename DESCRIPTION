@@ -3,6 +3,7 @@ Title: Adaptive liftOver
 Version: 1.0.0
 Authors@R: 
     person("Chenyang", "Dong", , "cdong@stat.wisc.edu", role = c("aut", "cre"))
+    person("Siqi", "Shen", , "sshen82@wisc.edu", role = c("cre"))
 Description: AdaLiftOver is a large scale computational tool for adaptively identifying orthologous regions across different species using the UCSC liftOver framework. 
     For given query genomic regions, AdaLiftOver incorporates epigenomic signals as well as sequence grammars to priorize/pinpoint candidate target genomic regions.
 Depends: R (>= 3.6.0)
