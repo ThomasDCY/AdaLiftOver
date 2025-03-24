@@ -170,25 +170,58 @@ compute_similarity_grammar_flat <- function(gr_query,
 ## A helper function that computes the sequence grammar signal indicator matrix
 ## (length(gr) by length(motif_list))
 compute_grammar_matrix <- function(gr,
-                                   motif_list,
-                                   genome,
-                                   grammar_size = 500L) {
+                                       motif_list,
+                                       genome,
+                                       grammar_size = 500L) {
   stopifnot(class(gr) == 'GRanges',
             length(gr) > 0,
             grammar_size >= 150)
-
   grammar_size <- as.integer(grammar_size)
+  if (is.character(genome)) {
+    suppressPackageStartupMessages(library(BSgenome))
+    genome_obj <- getBSgenome(genome)
+  } else {
+    genome_obj <- genome
+  }
+  chr_sizes <- seqlengths(genome_obj)
 
-  # width >= grammar_size
-  offset <- pmax(grammar_size - width(gr), 0) %/% 2
-  gr <- gr + offset
+  gr_safe <- gr
 
-  grammar_ix <-
-    matchMotifs(motif_list, gr, genome = genome, bg = 'even')
-  grammar_ix <- motifMatches(grammar_ix)
-  return(grammar_ix)
+  for (i in seq_along(gr_safe)) {
+    chr_name <- as.character(seqnames(gr_safe[i]))
+    chr_len <- chr_sizes[chr_name]
+
+    if (is.na(chr_len)) {
+      warning("Chromosome ", chr_name, " not found in genome. Skipping.")
+      next
+    }
+
+    region_width <- width(gr_safe[i])
+    if (region_width < grammar_size) {
+      half_extra <- (grammar_size - region_width) %/% 2
+      new_start <- max(1, start(gr_safe[i]) - half_extra)
+      new_end <- min(chr_len, end(gr_safe[i]) + half_extra)
+      start(gr_safe[i]) <- new_start
+      end(gr_safe[i]) <- new_end
+    }
+
+    if (start(gr_safe[i]) < 1) start(gr_safe[i]) <- 1
+    if (end(gr_safe[i]) > chr_len) end(gr_safe[i]) <- chr_len
+  }
+  tryCatch({
+    grammar_ix <- matchMotifs(motif_list, gr_safe, genome = genome, bg = 'even')
+    grammar_ix <- motifMatches(grammar_ix)
+    return(grammar_ix)
+  }, error = function(e) {
+    for (i in seq_along(gr_safe)) {
+      chr_name <- as.character(seqnames(gr_safe[i]))
+      chr_len <- chr_sizes[chr_name]
+      cat("Region ", i, ": ", chr_name, ":", start(gr_safe[i]), "-", end(gr_safe[i]),
+          " (chromosome length: ", chr_len, ")\n", sep="")
+    }
+    stop("Error in matchMotifs: ", e$message)
+  })
 }
-
 
 
 
